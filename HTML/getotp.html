@@ -7,6 +7,7 @@
 
 	<!-- 引入jQuery插件 -->
 	<script src="static/assets/global/plugins/jquery-1.11.0.min.js" type="text/javascript"></script>
+	<script src="getHost.js" type="text/javascript"></script>
 	<title></title>
 </head>
 <body class="login">
@@ -42,7 +43,7 @@
 			$.ajax({
 				type:"POST",
 				contentType:"application/x-www-form-urlencoded",
-				url:"http://localhost:8090/user/getotp",
+				url:"http://"+g_host+"/user/getotp",
 				data:{
 					"telephone":$("#telephone").val(),
 				},
@@ -50,7 +51,7 @@
 				success:function(data){
 					if(data.status == "success"){
 						alert("OTP已经发送到您的手机上，请注意查收");
-						window.location.href = "http://127.0.0.1:8848/HTML/register.html";
+						window.location.href = "register.html";
 					}else{
 						alert("otp发送失败，原因为" + data.data.errMsg);
 					}

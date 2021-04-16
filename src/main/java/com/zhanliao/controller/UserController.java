@@ -11,6 +11,7 @@ import com.zhanliao.service.model.UserModel;
 import org.apache.tomcat.util.security.MD5Encoder;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +25,8 @@ import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 
 @Controller("user")
@@ -39,6 +42,9 @@ public class UserController extends BaseController{
 
     @Autowired
     HttpServletRequest httpServletRequest;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     //用户登录
     @RequestMapping(value = "/login", method = {RequestMethod.POST}, consumes = {CONTENT_TYPE_FORMED}) //后面这个参数需要和前端对应
@@ -56,9 +62,21 @@ public class UserController extends BaseController{
         // 如果用户session有IS_LOGIN这个标志就设为true
         // 登录成功之后将成功信息放到session
         // 给前端返回一个信息
-        this.httpServletRequest.getSession().setAttribute("IS_LOGIN", true);
-        this.httpServletRequest.getSession().setAttribute("LOGIN_USER", userModel);
-        return CommonReturnType.create(null);
+        /*
+        【登陆成功之后将对应的登录信息和登录凭证一起存入Redis中】
+        1.生成登录token，UUID
+        2.建立用户与token的映射
+         */
+        String uuidToken = UUID.randomUUID().toString();
+        uuidToken = uuidToken.replace("-", "");
+        redisTemplate.opsForValue().set(uuidToken, userModel);
+        redisTemplate.expire(uuidToken, 1, TimeUnit.HOURS);
+
+        /*this.httpServletRequest.getSession().setAttribute("IS_LOGIN", true);
+        this.httpServletRequest.getSession().setAttribute("LOGIN_USER", userModel);*/
+
+        //
+        return CommonReturnType.create(uuidToken);
     }
 
     // 用户注册接口

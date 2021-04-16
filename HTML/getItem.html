@@ -7,6 +7,7 @@
 
 		<!-- 引入jQuery插件 -->
 		<script src="static/assets/global/plugins/jquery-1.11.0.min.js" type="text/javascript"></script>
+		<script src="getHost.js" type="text/javascript"></script>
 		<title></title>
 	</head>
 	<body class="login">
@@ -85,7 +86,7 @@
 				// 获取商品详情
 				$.ajax({
 					type: "POST",
-					url: "http://localhost:8090/order/createOrder",
+					url: "http://"+g_host+"/order/createOrder",
 					contentType:"application/x-www-form-urlencoded",
 					data: {
 						"itemId": g_itemVO.id,
@@ -114,7 +115,7 @@
 			// 获取商品详情
 			$.ajax({
 				type: "GET",
-				url: "http://localhost:8090/item/get",
+				url: "http://"+g_host+"/item/get",
 				data: {
 					"id": getParam("id"),
 				},
@@ -143,11 +144,17 @@
 			$("#sales").text(g_itemVO.sales);
 			if(g_itemVO.promoStatus == 1){
 				var startTime = g_itemVO.promoStartDate.replace(new RegExp("-","gm"),"/");
+				var endTime = g_itemVO.promoEndDate.replace(new RegExp("-","gm"),"/");
 				startTime =  (new Date(startTime)).getTime();
+				endTime =  (new Date(endTime)).getTime();
 				var nowTime = Date.parse(new Date());
 				var delta = (startTime - nowTime) /1000;
-				if(delta < 0){
+				var enddelta = (endTime - nowTime) /1000;
+				if(delta < 0 && enddelta > 0){
 					g_itemVO.promoStatus = 2;
+					reloadDom();
+				}else if(enddelta < 0){
+					g_itemVO.promoStatus = 3;
 					reloadDom();
 				}
 				$("#promoStartDate").text("秒杀活动将于：" + g_itemVO.promoStartDate + " 开始 倒计时： " + delta+"秒");
@@ -159,6 +166,9 @@
 				$("#promoPrice").text(g_itemVO.promoPrice);
 				$("#createOrder").attr("disabled", false);
 				$("#normalPriceContainer").hide();
+			}else if(g_itemVO.promoStatus == 3){
+				$("#promoStartDateContainer").hide();
+				$("#promoPriceContainer").hide();
 			}
 		}
 	</script>
