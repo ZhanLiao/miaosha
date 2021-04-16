@@ -66,6 +66,17 @@
       <artifactId>joda-time</artifactId>
       <version>2.10.5</version>
     </dependency>
+<!--    操作Redis-->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+<!--    spring管理会话的方式存储在Redis-->
+    <dependency>
+      <groupId>org.springframework.session</groupId>
+      <artifactId>spring-session-data-redis</artifactId>
+      <version>2.4.2</version>
+    </dependency>
 
     <dependency>
       <groupId>junit</groupId>
