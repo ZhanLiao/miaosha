@@ -2,6 +2,7 @@ package com.zhanliao.service.model;
 
 import org.joda.time.DateTime;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 
 /**
@@ -10,7 +11,7 @@ import java.math.BigDecimal;
  * @Date: 2021/4/8 22:24
  * @Version: 1.0
  */
-public class PromoModel {
+public class PromoModel implements Serializable {
     private Integer id;
 
     //秒杀活动的状态：1还没开始；2正在进行；3已结束；

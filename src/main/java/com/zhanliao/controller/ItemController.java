@@ -3,11 +3,13 @@ package com.zhanliao.controller;
 import com.zhanliao.controller.viewObject.ItemVO;
 import com.zhanliao.erro.BusinessException;
 import com.zhanliao.response.CommonReturnType;
+import com.zhanliao.service.CacheService;
 import com.zhanliao.service.ItemService;
 import com.zhanliao.service.model.ItemModel;
 import org.joda.time.format.DateTimeFormat;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 
@@ -36,6 +39,12 @@ public class ItemController extends BaseController{
 
     @Autowired
     ItemService itemService;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
+
+    @Autowired
+    private CacheService cacheService;
 
     @RequestMapping(value = "/createItem", method = {RequestMethod.POST}, consumes = {CONTENT_TYPE_FORMED}) //后面这个参数需要和前端对应
     @ResponseBody
@@ -60,7 +69,27 @@ public class ItemController extends BaseController{
     @RequestMapping(value = "/get", method = {RequestMethod.GET})//
     @ResponseBody
     public CommonReturnType getItem(@RequestParam(name = "id") Integer id){
-        ItemModel itemModel = itemService.getItemById(id);
+        /*ItemModel itemModel = itemService.getItemById(id);
+        */
+
+        // 加入本地缓存
+        ItemModel itemModel = null;
+        itemModel = (ItemModel) cacheService.getFromCommonCache("item_" + id);
+        // 若本地缓存没有，到Redis缓存
+        if(itemModel == null){
+            // 1. 先从Redis缓存获取数据
+            // 2. 若没有就从service访问
+            itemModel = (ItemModel) redisTemplate.opsForValue().get("item_" + id);
+            if(itemModel == null){
+                itemModel = itemService.getItemById(id);
+                redisTemplate.opsForValue().set("item_" + id, itemModel);
+                redisTemplate.expire("item_" + id, 10, TimeUnit.MINUTES);
+
+            }
+            cacheService.setCommonCache("item_" + id, itemModel);
+        }
+
+
         ItemVO itemVO = convertVOFromModel(itemModel);
         return CommonReturnType.create(itemVO);
 
