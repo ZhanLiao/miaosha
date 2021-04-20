@@ -12,4 +12,7 @@ public interface PromoService {
 
     // 根据itemid获取即将进行的或正在进行的秒杀活动
     PromoModel getPromoByItemId(Integer itemId);
+
+    // 发布活动商品
+    void publishPromoItem(Integer promoId);
 }

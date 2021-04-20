@@ -47,11 +47,14 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderModel createOrder(Integer userId, Integer itemId, Integer promoId, Integer amount) throws BusinessException {
         // 1.校验下单状态， 下单的商品是否存在， 用户是否合法， 购买的数量是否正确
-        final ItemModel itemModel = itemService.getItemById(itemId);
+//        final ItemModel itemModel = itemService.getItemById(itemId);
+        ItemModel itemModel = itemService.getItemByIdInCache(itemId);
+
         if (itemModel == null) {
             throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR, "商品不存在");
         }
-        final UserModel userModel = userService.getUserById(userId);
+//        final UserModel userModel = userService.getUserById(userId);
+        UserModel userModel = userService.getUserByIdInCache(itemId);
         if (userModel == null) {
             throw new BusinessException(EmBusinessError.PARAMETER_VALIDATION_ERROR, "用户信息不合法");
         }

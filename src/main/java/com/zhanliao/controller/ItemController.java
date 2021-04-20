@@ -5,6 +5,7 @@ import com.zhanliao.erro.BusinessException;
 import com.zhanliao.response.CommonReturnType;
 import com.zhanliao.service.CacheService;
 import com.zhanliao.service.ItemService;
+import com.zhanliao.service.PromoService;
 import com.zhanliao.service.model.ItemModel;
 import org.joda.time.format.DateTimeFormat;
 import org.springframework.beans.BeanUtils;
@@ -45,6 +46,9 @@ public class ItemController extends BaseController{
 
     @Autowired
     private CacheService cacheService;
+
+    @Autowired
+    PromoService promoService;
 
     @RequestMapping(value = "/createItem", method = {RequestMethod.POST}, consumes = {CONTENT_TYPE_FORMED}) //后面这个参数需要和前端对应
     @ResponseBody
@@ -128,4 +132,12 @@ public class ItemController extends BaseController{
         return itemVO;
     }
 
+
+    // 发布活动商品，这是应该运维人员做的
+    @RequestMapping(value = "/publishPromo", method = {RequestMethod.GET})//
+    @ResponseBody
+    public CommonReturnType publishPromo(@RequestParam(name = "id") Integer id){
+        promoService.publishPromoItem(id);
+        return CommonReturnType.create(null);
+    }
 }

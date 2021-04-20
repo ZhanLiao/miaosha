@@ -12,6 +12,9 @@ import com.zhanliao.service.model.UserModel;
 public interface UserService {
     // 通过用户id获取用户对象
     public UserModel getUserById(Integer id);
+    // 通过Redis缓存获取用户对象
+    public UserModel getUserByIdInCache(Integer id);
+
     public void register(UserModel userModel) throws BusinessException;
 
     /**

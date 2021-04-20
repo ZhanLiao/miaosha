@@ -6,6 +6,7 @@ import com.zhanliao.dataobject.ItemDO;
 import com.zhanliao.dataobject.ItemStockDO;
 import com.zhanliao.erro.BusinessException;
 import com.zhanliao.erro.EmBusinessError;
+import com.zhanliao.mq.MqProducer;
 import com.zhanliao.service.ItemService;
 import com.zhanliao.service.PromoService;
 import com.zhanliao.service.model.ItemModel;
@@ -14,11 +15,13 @@ import com.zhanliao.validator.ValidationImpl;
 import com.zhanliao.validator.ValidationResult;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -40,6 +43,12 @@ public class ItemServiceImpl implements ItemService {
 
     @Autowired
     PromoService promoService;
+
+    @Autowired
+    RedisTemplate redisTemplate;
+
+    @Autowired
+    MqProducer mqProducer;
 
     @Override
     @Transactional
@@ -119,6 +128,17 @@ public class ItemServiceImpl implements ItemService {
         return itemModel;
     }
 
+    @Override
+    public ItemModel getItemByIdInCache(Integer id) {
+        ItemModel itemModel = (ItemModel) redisTemplate.opsForValue().get("item_validate_" + id);
+        if(itemModel == null){
+            itemModel = this.getItemById(id);
+            redisTemplate.opsForValue().set("item_validate_" + id, itemModel);
+            redisTemplate.expire("item_validate_" + id, 10, TimeUnit.MINUTES);
+        }
+        return itemModel;
+    }
+
     private ItemModel convertModelFromDataObject(ItemDO itemDO, ItemStockDO itemStockDO){
         final ItemModel itemModel = new ItemModel();
         BeanUtils.copyProperties(itemDO, itemModel);
@@ -133,10 +153,21 @@ public class ItemServiceImpl implements ItemService {
          * 一条SQL语句就可以解决了
          * 避免用查询语句，返货真实的库存数量，做减法，再更新库存数量
          */
-        int affectRow = itemStockDOMapper.decreaseStock(itemId, amount);
+//        int affectRow = itemStockDOMapper.decreaseStock(itemId, amount);
+        // 从Redis中减库存
+        Long affectRow = redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue() * -1);
+
         if (affectRow > 0){
+            // 缓存扣减成功
+            boolean mqResult = mqProducer.asyncReduceStock(itemId, amount);
+            if(!mqResult){
+                //mq消息发送失败，就回滚Redis缓存
+                redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue());
+                return false;
+            }
             return true;
         }else {
+            redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue());
             return false;
         }
     }
