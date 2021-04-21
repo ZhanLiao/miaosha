@@ -2,8 +2,10 @@ package com.zhanliao.service.impl;
 
 import com.zhanliao.dao.ItemDOMapper;
 import com.zhanliao.dao.ItemStockDOMapper;
+import com.zhanliao.dao.StockLogDOMapper;
 import com.zhanliao.dataobject.ItemDO;
 import com.zhanliao.dataobject.ItemStockDO;
+import com.zhanliao.dataobject.StockLogDO;
 import com.zhanliao.erro.BusinessException;
 import com.zhanliao.erro.EmBusinessError;
 import com.zhanliao.mq.MqProducer;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -49,6 +52,9 @@ public class ItemServiceImpl implements ItemService {
 
     @Autowired
     MqProducer mqProducer;
+
+    @Autowired
+    StockLogDOMapper stockLogDOMapper;
 
     @Override
     @Transactional
@@ -190,5 +196,21 @@ public class ItemServiceImpl implements ItemService {
     @Transactional
     public void increaseSales(Integer itemId, Integer amount) throws BusinessException {
         itemDOMapper.increaseSales(itemId, amount);
+    }
+
+    @Override
+    @Transactional
+    public String initStockLog(Integer itemId, Integer amount) {
+        /**
+         * 初始化对应的库存流水
+         */
+        StockLogDO stockLogDO = new StockLogDO();
+        stockLogDO.setAmount(amount);
+        stockLogDO.setItemId(itemId);
+        stockLogDO.setStockLogId(UUID.randomUUID().toString().replace("-",""));
+        stockLogDO.setStatus(1);
+
+        stockLogDOMapper.insert(stockLogDO);
+        return stockLogDO.getStockLogId();
     }
 }

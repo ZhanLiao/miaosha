@@ -2,8 +2,10 @@ package com.zhanliao.service.impl;
 
 import com.zhanliao.dao.OrderDOMapper;
 import com.zhanliao.dao.SequenceDOMapper;
+import com.zhanliao.dao.StockLogDOMapper;
 import com.zhanliao.dataobject.OrderDO;
 import com.zhanliao.dataobject.SequenceDO;
+import com.zhanliao.dataobject.StockLogDO;
 import com.zhanliao.erro.BusinessException;
 import com.zhanliao.erro.EmBusinessError;
 import com.zhanliao.service.ItemService;
@@ -17,8 +19,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -45,9 +45,12 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     SequenceDOMapper sequenceDOMapper;
 
+    @Autowired
+    StockLogDOMapper stockLogDOMapper;
+
     @Override
     @Transactional
-    public OrderModel createOrder(Integer userId, Integer itemId, Integer promoId, Integer amount) throws BusinessException {
+    public OrderModel createOrder(Integer userId, Integer itemId, Integer promoId, Integer amount, String stockLogId) throws BusinessException {
         // 1.校验下单状态， 下单的商品是否存在， 用户是否合法， 购买的数量是否正确
 //        final ItemModel itemModel = itemService.getItemById(itemId);
         ItemModel itemModel = itemService.getItemByIdInCache(itemId);
@@ -115,6 +118,13 @@ public class OrderServiceImpl implements OrderService {
             }
         });*/
 
+        // 设置库存流水状态为成功
+        StockLogDO stockLogDO = stockLogDOMapper.selectByPrimaryKey(stockLogId);
+        if (stockLogDO == null) {
+            throw new BusinessException(EmBusinessError.UNKNOWN_ERROR);
+        }
+        stockLogDO.setStatus(2);
+        stockLogDOMapper.updateByPrimaryKeySelective(stockLogDO);
 
         // 4. 返回前端
         return orderModel;

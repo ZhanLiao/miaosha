@@ -1,15 +1,14 @@
 package com.zhanliao.mq;
 
-import com.alibaba.druid.support.spring.stat.SpringStatUtils;
 import com.alibaba.fastjson.JSON;
+import com.zhanliao.dao.StockLogDOMapper;
+import com.zhanliao.dataobject.StockLogDO;
 import com.zhanliao.erro.BusinessException;
 import com.zhanliao.service.OrderService;
 import org.apache.rocketmq.client.exception.MQBrokerException;
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.LocalTransactionState;
-import org.apache.rocketmq.client.producer.SendCallback;
-import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.producer.TransactionListener;
 import org.apache.rocketmq.client.producer.TransactionMQProducer;
 import org.apache.rocketmq.client.producer.TransactionSendResult;
@@ -45,6 +44,9 @@ public class MqProducer {
     @Autowired
     OrderService orderService;
 
+    @Autowired
+    StockLogDOMapper stockLogDOMapper;
+
     @PostConstruct
     public void init() throws MQClientException {
         // 做mq producer的初始化
@@ -61,10 +63,15 @@ public class MqProducer {
                 Integer userId = (Integer) ((Map)arg).get("userId");
                 Integer promoId = (Integer) ((Map)arg).get("promoId");
                 Integer amount = (Integer) ((Map)arg).get("amount");
+                String stockLogId = (String) ((Map)arg).get("stockLogId");
                 try {
-                    orderService.createOrder(userId, itemId, promoId, amount);
+                    orderService.createOrder(userId, itemId, promoId, amount, stockLogId);
                 } catch (BusinessException e) {
                     e.printStackTrace();
+                    // 设置对应的stockLog为回滚状态
+                    StockLogDO stockLogDO = stockLogDOMapper.selectByPrimaryKey(stockLogId);
+                    stockLogDO.setStatus(3);
+                    stockLogDOMapper.updateByPrimaryKeySelective(stockLogDO);
                     return LocalTransactionState.ROLLBACK_MESSAGE;
                 }
                 return LocalTransactionState.COMMIT_MESSAGE;
@@ -78,17 +85,30 @@ public class MqProducer {
                 Map<String, Object> map = JSON.parseObject(jsonString, Map.class);
                 Integer itemId = (Integer) map.get("itemId");
                 Integer amount = (Integer) map.get("amount");
-                return null;
+                String stockLogId = (String) map.get("stockLogId");
+
+                StockLogDO stockLogDO = stockLogDOMapper.selectByPrimaryKey(stockLogId);
+                if (stockLogDO == null) {
+                    return LocalTransactionState.UNKNOW;
+                }
+                if (stockLogDO.getStatus() == 2){
+                    return LocalTransactionState.COMMIT_MESSAGE;
+                }else if (stockLogDO.getStatus() == 1){
+                    return LocalTransactionState.UNKNOW;
+                }
+
+                return LocalTransactionState.ROLLBACK_MESSAGE;
             }
         });
 
     }
 
     // 事务型同步库存扣减消息
-    public boolean transactionAsyncReduceStock(Integer userId, Integer itemId, Integer promoId, Integer amount){
+    public boolean transactionAsyncReduceStock(Integer userId, Integer itemId, Integer promoId, Integer amount, String stockLogId){
         HashMap<String, Object> bodyMap = new HashMap<>();
         bodyMap.put("itemId", itemId);
         bodyMap.put("amount", amount);
+        bodyMap.put("stockLogId", stockLogId);
         Message message= new Message(topicName, "increase",
                                      JSON.toJSON(bodyMap).toString().getBytes(Charset.forName("UTF-8")));
 
@@ -97,6 +117,8 @@ public class MqProducer {
         argMap.put("itemId", itemId);
         argMap.put("promoId", promoId);
         argMap.put("amount", amount);
+        bodyMap.put("stockLogId", stockLogId);
+
         TransactionSendResult transactionSendResult = null;
         try {
             transactionSendResult = transactionMQProducer.sendMessageInTransaction(message, argMap);

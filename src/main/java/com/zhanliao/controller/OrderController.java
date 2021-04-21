@@ -4,6 +4,7 @@ import com.zhanliao.erro.BusinessException;
 import com.zhanliao.erro.EmBusinessError;
 import com.zhanliao.mq.MqProducer;
 import com.zhanliao.response.CommonReturnType;
+import com.zhanliao.service.ItemService;
 import com.zhanliao.service.OrderService;
 import com.zhanliao.service.model.OrderModel;
 import com.zhanliao.service.model.UserModel;
@@ -45,6 +46,9 @@ public class OrderController extends BaseController {
     @Autowired
     MqProducer mqProducer;
 
+    @Autowired
+    ItemService itemService;
+
     // 封装请求下单
     @RequestMapping(value = "/createOrder", method = {RequestMethod.POST}, consumes = {CONTENT_TYPE_FORMED}) //后面这个参数需要和前端对应,
     @ResponseBody
@@ -68,9 +72,14 @@ public class OrderController extends BaseController {
         }
 
 //        OrderModel orderModel = orderService.createOrder(userModel.getId(), itemId, promoId, amount);//userModel.getId()
-        if (!mqProducer.transactionAsyncReduceStock(userModel.getId(), itemId, promoId, amount)) {
-            throw new BusinessException(EmBusinessError.UNKNOWN_ERROR, "下单失败");
 
+        // 加入库存流水的init状态
+        String stockLogId = itemService.initStockLog(itemId, amount);
+
+
+        // 再去完成对应的下单事务型消息机制
+        if (!mqProducer.transactionAsyncReduceStock(userModel.getId(), itemId, promoId, amount, stockLogId)) {
+            throw new BusinessException(EmBusinessError.UNKNOWN_ERROR, "下单失败");
         }
 
         return CommonReturnType.create(null);
