@@ -2,6 +2,7 @@ package com.zhanliao.controller;
 
 import com.zhanliao.erro.BusinessException;
 import com.zhanliao.erro.EmBusinessError;
+import com.zhanliao.mq.MqProducer;
 import com.zhanliao.response.CommonReturnType;
 import com.zhanliao.service.OrderService;
 import com.zhanliao.service.model.OrderModel;
@@ -41,6 +42,9 @@ public class OrderController extends BaseController {
     @Autowired
     RedisTemplate redisTemplate;
 
+    @Autowired
+    MqProducer mqProducer;
+
     // 封装请求下单
     @RequestMapping(value = "/createOrder", method = {RequestMethod.POST}, consumes = {CONTENT_TYPE_FORMED}) //后面这个参数需要和前端对应,
     @ResponseBody
@@ -63,7 +67,12 @@ public class OrderController extends BaseController {
             throw new BusinessException(EmBusinessError.USER_NOT_LOGIN, "会话过期了");
         }
 
-        OrderModel orderModel = orderService.createOrder(userModel.getId(), itemId, promoId, amount);//userModel.getId()
+//        OrderModel orderModel = orderService.createOrder(userModel.getId(), itemId, promoId, amount);//userModel.getId()
+        if (!mqProducer.transactionAsyncReduceStock(userModel.getId(), itemId, promoId, amount)) {
+            throw new BusinessException(EmBusinessError.UNKNOWN_ERROR, "下单失败");
+
+        }
+
         return CommonReturnType.create(null);
     }
 }

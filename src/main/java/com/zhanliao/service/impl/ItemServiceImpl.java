@@ -148,6 +148,7 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
+    @Transactional
     public boolean decreaseStock(Integer itemId, Integer amount) throws BusinessException {
         /**
          * 一条SQL语句就可以解决了
@@ -159,17 +160,30 @@ public class ItemServiceImpl implements ItemService {
 
         if (affectRow > 0){
             // 缓存扣减成功
-            boolean mqResult = mqProducer.asyncReduceStock(itemId, amount);
+            /*boolean mqResult = mqProducer.asyncReduceStock(itemId, amount);
             if(!mqResult){
                 //mq消息发送失败，就回滚Redis缓存
                 redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue());
                 return false;
-            }
+            }*/
             return true;
         }else {
-            redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue());
+//            redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue());
+            increaseStock(itemId, amount);
             return false;
         }
+    }
+
+    @Override
+    public boolean increaseStock(Integer itemId, Integer amount) throws BusinessException {
+        redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue());
+        return true;
+    }
+
+    @Override
+    public boolean asyncDecreaseStock(Integer itemId, Integer amount) {
+        boolean mqResult = mqProducer.asyncReduceStock(itemId, amount);
+        return mqResult;
     }
 
     @Override
