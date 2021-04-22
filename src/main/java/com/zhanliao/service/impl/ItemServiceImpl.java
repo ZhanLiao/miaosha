@@ -173,7 +173,11 @@ public class ItemServiceImpl implements ItemService {
                 return false;
             }*/
             return true;
-        }else {
+        }else if (affectRow == 0){
+            // 库存售罄
+            redisTemplate.opsForValue().set("promo_item_stock_invalid_" + itemId, true);
+            return true;
+        } else {
 //            redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue());
             increaseStock(itemId, amount);
             return false;
